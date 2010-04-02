@@ -1,6 +1,8 @@
 require 'uri'
 require 'date'
 require 'curies'
+require 'rdf'
+require 'enumerator'
 
 module RDFObject
   module Node
@@ -133,7 +135,40 @@ module RDFObject
       end 
       ntriples     
     end
-    
+
+    def each(&block)
+      if block_given?
+        Curie.get_mappings.each do | prefix, uri |
+          if self[uri]
+            self[uri].keys.each do | pred |    
+              if self[uri][pred].is_a?(Array)
+                objects = self[uri][pred]
+              else
+                objects = [self[uri][pred]]
+              end
+              objects.each do | object |
+                components = {}
+                components[:subject] = RDF::URI.parse(self.uri)
+                components[:predicate] = RDF::URI.parse("#{uri}#{pred}")
+                if object.is_a?(ResourceReference)
+                  components[:object] = RDF::URI.parse(object.uri)
+                else
+                  components[:object] = RDF::Literal.new(object)
+                  components[:object].datatype = object.data_type if object.respond_to? :data_type
+                  components[:object].language = object.language if object.respond_to? :language
+                end
+                block.call(RDF::Statement.new(components))
+              end
+            end
+          end
+        end
+      else
+        ::Enumerable::Enumerator.new(self,:each)
+      end
+    end
+
+    include RDF::Enumerable, RDF::Queryable
+
     def to_xml(depth=0)
       namespaces, rdf_data = rdf_description_block(depth)
       unless namespaces["xmlns:rdf"]

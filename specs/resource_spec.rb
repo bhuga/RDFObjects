@@ -1,4 +1,8 @@
 require File.dirname(__FILE__) + '/../lib/rdf_objects'
+require 'rdf/spec'
+require 'rdf/spec/enumerable'
+require 'spec'
+
 include RDFObject
 describe "An RDFObject Resource" do
 
@@ -103,6 +107,25 @@ describe "An RDFObject Resource" do
     BlankNode.is_bnode_id?("urn:ISBN:0195174623").should ==(false)
     BlankNode.is_bnode_id?("info:lccn/2003069776").should ==(false)    
     BlankNode.is_bnode_id?("_:foobar").should ==(true)
+  end
+
+  context "should be an RDF::Enumerable" do
+    before :each do
+      @enumerable = Resource.new('http://example.org/1234')
+      @enumerable.assert('http://purl.org/dc/elements/1.1/creator', 'William Shakespeare')
+      @enumerable.assert("[foaf:name]", "William Shakespeare")
+      @enumerable.relate("[rdf:type]", "[foaf:Person]")
+
+      @statements = []
+      data = StringIO.new(@enumerable.to_ntriples)
+        RDF::Reader.for(:ntriples).new(data) do |reader|
+          reader.each_statement do |statement|
+            @statements << statement
+        end
+      end
+    end
+
+    it_should_behave_like RDF_Enumerable
   end
 
 end
